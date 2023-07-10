@@ -1,0 +1,166 @@
+---
+- hosts: router
+  become: true
+  vars_files:
+    - external_vars.yml
+    - passwords.yml
+  tasks:
+    - name: copy cert
+      fetch:
+        src: "/opt/ca/{{ name_web }}.crt"
+        dest: "/opt/ansible/certs/{{ name_web }}.crt"
+        flat: true
+
+    - name:  copy key
+      fetch:
+        src: "/opt/ca/{{ name_web }}.key"
+        dest: "/opt/ansible/certs/{{ name_web }}.key"
+        flat: true
+
+- hosts: astra
+  become: true
+  vars_files:
+    - passwords.yml
+    - external_vars.yml
+  pre_tasks:
+    - name: install reqs
+      apt:
+        name: git
+        state: latest
+
+    - name: install reqs
+      apt:
+        name: python3-mysqldb
+        state: latest
+  tasks:
+    - name: install apache2
+      apt:
+        name: apache2
+        state: latest
+
+    - name: install apache2 deps
+      apt:
+        name: libapache2-mod-php
+        state: latest
+
+    - name: install apache2 deps
+      apt:
+        name: php
+        state: latest
+
+    - name: install apache2 deps
+      apt:
+        name: php-mysql
+        state: latest
+
+    - name: disable apache2
+      service:
+        name: apache2
+        state: stopped
+
+    - name: install nginx
+      apt:
+        name: nginx
+        state: latest
+
+    - name: disable apache2
+      service:
+        name: nginx
+        state: stopped
+
+    - name: push apache2 ports config
+      template:
+        src: ports.conf.j2
+        dest: /etc/apache2/ports.conf
+
+    - name: push apache2 site config
+      template:
+        src: 000-default.conf.j2
+        dest: /etc/apache2/sites-enabled/000-default.conf.j2
+
+    - name: push nginx config
+      template:
+        src: nginx.conf.j2
+        dest: /etc/nginx/nginx.conf
+
+    - name: push nginx config
+      template:
+        src: site.conf.j2
+        dest: /etc/nginx/conf.d/site.conf
+
+    - name: push certificate
+      copy:
+        src: "/opt/ansible/certs/{{ name_web }}.crt"
+        dest: "/etc/ssl/{{ name_web }}.crt"
+
+    - name: push key
+      copy:
+        src: "/opt/ansible/certs/{{ name_web }}.key"
+        dest: "/etc/ssl/{{ name_web }}.key"
+
+    - name: setup website
+      git:
+        repo: https://github.com/callmepotter/ws-web
+        dest: /var/www/site
+
+
+    - name: install mariadb-server
+      tags: db
+      apt:
+        name: mariadb-server
+        state: latest
+
+    - name: setup root password for mariadb
+      tags: db
+      mysql_user:
+        name: root
+        host: localhost
+        state: present
+        password: "{{ db_root_password }}"
+        priv: '*.*:ALL,GRANT'
+
+    - name: create /opt/db
+      tags: db
+      file:
+        state: directory
+        dest: /opt/db
+
+    - name: copy db
+      tags: db
+      copy:
+        src: /var/www/site/dump.sql
+        dest: /opt/db/dump.sql
+        remote_src: yes
+
+    - name: remove if exists
+      tags: db
+      mysql_db:
+        name: animals
+        state: absent
+
+    - name: restore database
+      tags: db
+      mysql_db:
+        login_user: root
+        login_password: "{{ db_root_password }}"
+        name: animals
+        state: import
+        target: /opt/db/dump.sql
+
+    - name: create admin for animals database
+      tags: db
+      mysql_user:
+        name: animals
+        state: present
+        password: "{{ db_animals_password }}"
+        priv: 'animals.*:ALL,GRANT'
+
+    - name: enable apache2
+      service: 
+        name: apache2
+        state: started
+
+    - name: enable nginx
+      service: 
+        name: nginx
+        state: started

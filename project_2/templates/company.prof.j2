@@ -1,0 +1,25 @@
+$ORIGIN company.prof.
+$TTL 3H
+company.prof.	IN 	SOA	ns.company.prof root.company.prof. (
+					2023060700	; serial
+					1D	; refresh
+					1H	; retry
+					1W	; expire
+					3H )	; minimum
+
+
+
+company.prof. 	IN	NS	ns
+company.prof.	IN	A	10.10.10.254
+
+
+ns		IN	A	10.10.10.254
+rtr		IN	CNAME	ns
+ntp		IN	CNAME	ns
+
+ans		IN	A	10.10.10.100
+srv-a		IN	A	10.10.10.10
+srv-r		IN	A	10.10.10.20
+
+web		IN	A	{{ name_web }}
+site		IN	A	{{ name_site }}

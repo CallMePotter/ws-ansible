@@ -1,0 +1,33 @@
+---
+- hosts: redos
+  become: true
+  tasks:
+    - name: install pip
+      dnf: 
+        name: docker-compose
+        state: absent
+
+    - name: install pip
+      pip: 
+        name: docker-compose
+        state: latest
+
+    - name: create dir for docker compose config
+      file:
+        path: /opt/docker-compose/
+        state: directory
+        recurse: true
+
+
+    - name: push docker compose to server
+      copy:
+        src: docker-compose.yml
+        dest: /opt/docker-compose/docker-compose.yml
+
+    - name: start docker compose
+      community.docker.docker_compose:
+        project_src: /opt/docker-compose
+      register: output
+
+
+  

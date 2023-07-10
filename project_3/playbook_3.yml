@@ -1,0 +1,53 @@
+---
+- hosts: router
+  become: true
+  vars_files:
+    - external_vars.yml
+  pre_tasks:
+    - name: install reqs
+      dnf:
+        name: pyOpenSSL
+  tasks:
+    - name: generate openssl private key
+      openssl_privatekey:
+        path: "/opt/ca/{{ name_web }}.key"
+
+    - name: generate request
+      openssl_csr: 
+        path: "/opt/ca/{{ name_web }}.csr"
+        privatekey_path: "/opt/ca/{{ name_web}}.key"
+        common_name: "{{ name_web }}"
+        country_name: RU
+
+    - name: generate certificate 
+      openssl_certificate:
+        path: "/opt/ca/{{ name_web }}.crt"
+        csr_path: "/opt/ca/{{ name_web }}.csr"
+        ownca_path: "/opt/ca/ca.crt"
+        ownca_privatekey_path: "/opt/ca/private/ca.key"
+        ownca_privatekey_passphrase: P@ssw0rd
+        provider: ownca
+        subject_alt_name:
+          - "{{ name_web }}"
+
+    - name: generate openssl private key
+      openssl_privatekey:
+        path: "/opt/ca/{{ name_site }}.key"
+
+    - name: generate request
+      openssl_csr: 
+        path: "/opt/ca/{{ name_site }}.csr"
+        privatekey_path: "/opt/ca/{{ name_site}}.key"
+        common_name: "{{ name_site }}"
+        country_name: RU
+
+    - name: generate certificate 
+      openssl_certificate:
+        path: "/opt/ca/{{ name_site }}.crt"
+        csr_path: "/opt/ca/{{ name_site }}.csr"
+        ownca_path: "/opt/ca/ca.crt"
+        ownca_privatekey_path: "/opt/ca/private/ca.key"
+        ownca_privatekey_passphrase: P@ssw0rd
+        provider: ownca
+        subject_alt_name:
+          - "{{ name_site }}"

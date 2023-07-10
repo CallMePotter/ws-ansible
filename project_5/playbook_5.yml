@@ -1,0 +1,125 @@
+---
+- hosts: redos
+  vars_files:
+    - passwords.yml
+    - external_vars.yml
+  become: true
+  pre_tasks:
+    - name: install reqs
+      dnf:
+        name: python3-docker
+        state: latest
+    - name: install reqs
+      dnf:
+        name: git
+        state: latest
+  tasks:
+    - name: install docker
+      dnf:
+        name: docker-ce
+        state: latest
+
+    - name: start docker
+      service:
+        name: docker
+        state: started
+
+    - name: reqs for mariadb
+      file:
+        path: /opt/mariadb
+        state: directory
+
+    - name: clone repo with database and site to machine
+      git:
+        repo: https://github.com/callmepotter/ws-web
+        dest: /opt/mariadb
+
+    - name:
+      docker_container:
+        name: mariadb_c
+        state: absent
+
+    - name: create mariadb container
+      docker_container:
+        name: mariadb_c
+        image: mariadb
+        published_ports:
+          - 3306:3306
+        volumes:
+          - /opt/mariadb:/db
+        working_dir: /db
+        env:
+          MARIADB_USER: animals
+          MARIADB_PASSWORD: "{{ animals_db_password }}"
+          MARIADB_ROOT_PASSWORD: "{{ root_db_password }}"
+          MARIADB_DATABASE: animals
+
+    - name: wait
+      wait_for:
+        timeout: 5
+
+    - name: import database
+      command: docker exec mariadb_c sh -c 'exec mariadb -h 127.0.0.1 -P 3306 -uanimals -p{{ animals_db_password }} animals < /db/dump.sql' 
+
+    - name: create /opt/nginx
+      file:
+        path: /opt/nginx/conf.d
+        state: directory
+        recurse: true
+
+    - name: create /opt/nginx
+      file:
+        path: /opt/nginx/www
+        state: directory
+        recurse: true
+
+    - name: copy certs to server
+      copy:
+        src: "/opt/ansible/project_5/certs/{{ name_site }}.crt"
+        dest: "/opt/nginx/{{ name_site }}.crt"
+
+    - name: copy certs to server
+      copy:
+        src: "/opt/ansible/project_5/certs/{{ name_site }}.key"
+        dest: "/opt/nginx/{{ name_site }}.key"
+
+    - name: copy index.html to server
+      copy:
+        src: /opt/mariadb/index.html
+        dest: /opt/nginx/www/index.html
+        remote_src: true
+
+    - name: copy configs
+      template:
+        src: nginx.conf.j2
+        dest: /opt/nginx/nginx.conf
+
+    - name: copy configs
+      template:
+        src: site.conf.j2
+        dest: /opt/nginx/conf.d/site.conf
+
+    - name: copy configs
+      template:
+        src: mime.types
+        dest: /opt/nginx/mime.types
+
+    - name: create nginx container
+      docker_container:
+        name: nginx_c
+        image: nginx
+        published_ports:
+          - 80:80
+          - 443:443
+          - 8443:8443
+        volumes:
+          - /opt/nginx:/etc/nginx
+        working_dir: /etc/nginx
+
+
+    - name: create httpd container
+      docker_container:
+        name: httpd_c
+        image: httpd
+        published_ports:
+          - 8080:80

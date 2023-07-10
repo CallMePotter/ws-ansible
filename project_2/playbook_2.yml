@@ -1,0 +1,18 @@
+---
+- hosts: router
+  become: true
+  vars_files:
+    - external_vars.yml
+  tasks:
+  - name: push dns record to rtr
+    template:
+      src: company.prof.j2
+      dest: /opt/dns/company.prof
+      owner: named
+      group: named
+
+  - name: restart named service
+    service:
+      name: named
+      state: restarted
+

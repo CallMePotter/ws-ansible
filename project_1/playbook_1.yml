@@ -1,0 +1,50 @@
+---
+- hosts: astra
+  become: true
+  pre_tasks:
+    - name: installing chrony
+      apt:
+        name: chrony
+        update_cache: true
+        state: latest
+  tasks: 
+    - name: set correct timezone
+      timezone:
+        name: Asia/Yekaterinburg
+
+    - name: push config
+      template:
+        src: chrony.conf.j2
+        dest: /etc/chrony/chrony.conf
+
+    - name: restart chronyd
+      service:
+        name: chronyd
+        state: restarted
+
+
+
+- hosts: redos
+  become: true
+  pre_tasks:
+    - name: installing chrony
+      dnf:
+        name: chrony
+        update_cache: true
+        update_only: true
+        state: latest
+
+  tasks: 
+    - name: set correct timezone
+      timezone:
+        name: Asia/Yekaterinburg
+
+    - name: push config
+      template:
+        src: chrony.conf.j2
+        dest: /etc/chrony.conf
+
+    - name: restart chronyd
+      service:
+        name: chronyd
+        state: restarted
